@@ -18,16 +18,21 @@ The rationale behind this project is pretty simple - the best way to test your u
 
 Compared to Ben's 6502 build I introduced the following changes:
 
-1. Added automatic power-up reset circuitry
-2. Changed address decoder logic (**very important from compatibility perspective**)
-3. Changed LCD interface from 8-bit to 4-bit (**very important from compatibility perspective**)
-4. Added additional VIA chip to provide easy expansion of the system
-5. Added ACIA chip for serial communication
-6. Added (**optional - more on that later**) USB-UART interface for easy connectivity with PC
-7. Added PS/2 keyboard port and ATtiny4313-based keyboard controller to provide proper replacement for five pushbuttons in Ben's design
-8. Added expansion port (not really deviation from Ben's build, save for one detail - unlike Ben's build, my version can support various interrupt sources, including the expansion port).
+1. Added [automatic power-up reset circuitry](#automatic-power-on-reset),
+2. Changed [address decoder logic](#address-decoder-change) (**very important from compatibility perspective**),
+3. Changed [LCD interface](#lcd-interface-change) from 8-bit to 4-bit (**very important from compatibility perspective**),
+4. Added [additional VIA chip](#extra-via-chip) to provide easy expansion of the system,
+5. Added [ACIA chip for serial communication](#extra-acia-chip-for-serial-communication),
+6. Added (**optional - more on that later**) [USB-UART interface](#extra-usb-uart-interface-chip) for easy connectivity with PC,
+7. Added [PS/2 keyboard port and ATtiny4313-based keyboard controller](#ps2-keyboard-interface-and-attiny4313-based-controller) to provide proper replacement for five pushbuttons in Ben's design,
+8. Added [expansion port](#expansion-port) (not really deviation from Ben's build, save for one detail - unlike Ben's build, my version can support various interrupt sources, including the expansion port),
+9. Modified [clock module](#modified-clock-module) (external),
+10. Changed [compilator from VASM to CC65](#migration-from-vasm-to-cc65),
+11. Added [simple way to choose clock source](#clock-input).
 
 You might be wondering if this means that you can't run Ben's programs on this build - and the answer is **YES YOU CAN**. Indeed, some changes to the code are necessary, but thanks to the additional VIA chip and with some changes to the addressing mode you can run any program from Ben's videos. If you want to use LCD in 8-bit mode, you can also use the additional VIA for it, ignoring the built-in LCD connector.
+
+By the way, the opposite is also true - **you can compile and run my programs on Ben's computer**. There are special compilation flags that enable usage of Ben's address decoder. I will describe this in more detail in software section.
 
 Detailed description and rationale for each change is discussed in next sections.
 
@@ -91,21 +96,23 @@ The same program to run on my build:
 #
 code = bytearray([
   0xa9, 0xff,         # lda #$ff
-  0x8d, 0x02, 0x88,   # sta $8802
+  0x8d, 0x02, 0x88,   # sta $8802 # MODIFIED HERE - use different VIA address
 
   0xa9, 0x55,         # lda #$55
-  0x8d, 0x00, 0x88,   # sta $8800
+  0x8d, 0x00, 0x88,   # sta $8800 # MODIFIED HERE - use different VIA address
 
   0xa9, 0xaa,         # lda #$aa
-  0x8d, 0x00, 0x88,   # sta $8800
+  0x8d, 0x00, 0x88,   # sta $8800 # MODIFIED HERE - use different VIA address
 
-  0x4c, 0x05, 0xa0,   # jmp $a005
+  0x4c, 0x05, 0xa0,   # jmp $a005 # MODIFIED HERE - different code start address, so different jump target
   ])
 
+# MODIFIED BELOW - first 8KB of ROM are not really used, but need to be filled out; actual ROM starts at address
+# 0xa000 and is of 24KB length
 rom = bytearray([0xea] * 8192) + code + bytearray([0xea] * (24576 - len(code)))
 
 rom[0x7ffc] = 0x00
-rom[0x7ffd] = 0xa0
+rom[0x7ffd] = 0xa0 # MODIFIED HERE - different code start address
 
 with open("rom.bin", "wb") as out_file:
   out_file.write(rom)
@@ -159,13 +166,23 @@ Beside address bus, data bus, clock and R/W signals, you will also find reset li
 
 IOCS line can be used to add additional chips like ACIA or VIA via expansion port. VIA1 is selected using IOCS and A12 line (address 0b1001xxxxxxxxxxxx), VIA2 is selected using IOCS and A11 line (address 0b100x1xxxxxxxxxx), ACIA using IOCS and A10 line (address 0b100xx1xxxxxxxxxx), and you can access external I/O chips using addresses like IOCS and A9 for example (address 0b100xxx1xxxxxxxx). As you can see, it enables up to 8 external I/O chips (last two lines A0/A1 for register select) :)
 
+### Modified clock module
+
+I have also modified Ben's design of clock module used in both [8-bit breadboard computer](https://eater.net/8bit) and in [6502 computer](https://eater.net/6502). The reason here was pretty similar - modification introduced to validate own understanding of the original design. There was another thing, though - contents of my kit were not aligned with Ben's design (wrong kind of switch) and the design itself had serious flaw. Details of both of these things have been explained in detail [here](https://www.reddit.com/r/beneater/comments/eai6ke/issue_with_clock_kit_and_possible_solution_with/) and [here](https://www.reddit.com/r/beneater/comments/edp1ls/noise_issue_in_monostable_mode_of_ben_eaters/).
+
+### Migration from VASM to CC65
+
+As much as I liked VASM for small, simple projects, it became quite cumbersome to use when I wanted to introduce different addressing models. CC65 is basically much better compiler for anything 65(C)02 :)
+
+If time allows, I will also provide special versions of Ben's programs written for VASM, but targeted for my own build.
+
 ### Clock input
 
 Clock signal can be provided in one of three ways:
 
 1. Use onboard 1MHz oscillator - simply put jumper on J1 connector two leftmost pins,
 2. Use external clock module - remove the jumper from J1 connector, and connect clock signal to middle pin,
-3. Use expansion port - remove jumper from J1 connector and provide clocl signal via CLK pin of the expansion port.
+3. Use expansion port - remove jumper from J1 connector and provide clock signal via CLK pin of the expansion port.
 
 Last option will be used in (planned currently) custom debugger board.
 
@@ -174,6 +191,39 @@ Last option will be used in (planned currently) custom debugger board.
 Everything, basically. Schematics of the 6502 board, modified clock module, address decoder and other circuits I built during the project. Arduino sketches I used for debugging and simple programs used to test different features.
 
 And, last but not least, full set of sample programs to follow Ben's videos on my build plus my own bootloader/OS. The last two things are coming soon :)
+
+### `Arduino` folder
+
+There are several sketches here, as described below
+* `6502-monitor` - based on Ben's monitor code with some small modifications (like clock counter I used for clock interrupt testing), to be uploaded to Arduino Mega for debugging **USED FREQUENTLY AND WORKS**
+* `6522-monitor` - similar to the above, implemented for testing of the output from VIA chip **NOT TESTED FOR A LONG TIME**
+* `address-decoder-test` - my own take on the TDD principles in hardware design, described in detail [here](https://www.reddit.com/r/beneater/comments/ej3lqi/65c02_address_decoder_for_32k_ram_24k_rom_and_2/) **NOT TESTED FOR A LONG TIME**
+* `bounce-counter` - small program used for troubleshooting of the [noise issue in monostable mode of Ben's clock module](https://www.reddit.com/r/beneater/comments/edp1ls/noise_issue_in_monostable_mode_of_ben_eaters/) **USED RECENTLY AND WORKS**
+* `handshake-4313` - small program used to test hardware handshake with VIA, to be uploaded to ATtiny4313 **NOT SURE IF STILL WORKS**
+* `handshake-test` - similar to the above, but built for Arduino Mege **NOT SURE IF STILL WORKS**
+* `irq-4313` - very small program to test IRQ handling by ATtiny4313 **PROBABLY STILL WORKS**
+* `irq-test` - as above, but targeted for Arduino Mega **PROBABLY STILL WORKS**
+* `keyboard-4313` - **THE MOST IMPORTANT ARDUINO SKETCH HERE** - this one has to be uploaded to ATtiny4313 for PS/2 keyboard operation **USED FREQUENTLY AND WORKS**
+* `keyboard-mega` - similar as above, but for Arduino Mega, not to be used, written for debugging purposes **WORKS**
+* `keyboard-detect-mega` - modification of the above to implement proof-of-concept PS/2 host to device communication **WORKS**
+* `keyboard-test-4313` - first version of the code for keyboard controller, but used only to validate PS/2->AVR connection, no interaction with VIA yet. Merged with `handshake-4313` to implement data transfer to VIA **WORKS**
+* `keyboard-test-mega` - as above, but targeted for Arduino Mega **PROBABLY WORKS**
+
+As you can see, there is plenty of unused code there, but I kept it for the record and reference. You basically need two programs for 6502 (`6502-monitor` to be installed on Arduino Mega for debugging and `keyboard-4313` to be installed on onboard ATtiny4313 for keyboard controller operation) and another one for the clock module (`bounce-counter`, to be installed on Arduino Mega to confirm correct operation in monostable mode).
+
+### `Datasheets` folder
+
+All the datasheets I used when designing my build, attached for reference.
+
+### `Schematics` folder
+
+All the KiCAD schematics for the 6502 computer, modified clock module and several others:
+* 65C02_Computer - main schematic, including PCB design for my build of 6502 computer,
+* Clock_module - schematic for the modified clock module, including PCB design,
+* 555_troubleshoot - schematic of circuit used in [troubleshooting of clock module monostable noise issue](https://www.reddit.com/r/beneater/comments/edp1ls/noise_issue_in_monostable_mode_of_ben_eaters/),
+* Address_decoder_basic - schematic of Ben Eater's address decoder for 6502 project,
+* Address_decoder_basic_v2 - slightly modified version of the above,
+* Address_decoder_extended - schematic of my own address decoder, used in the final build of my 6502 computer.
 
 ## Getting started
 
