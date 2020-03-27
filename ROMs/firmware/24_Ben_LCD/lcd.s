@@ -1,6 +1,6 @@
 ; Implements the long and inefficient "hello world" assembly
 ; program from https://www.youtube.com/watch?v=FY3zTUaykVo
-E = %10000000
+E = %00000001
 RW = %01000000
 RS = %00100000
 
@@ -16,7 +16,7 @@ RS = %00100000
       .code
 
 init:
-      lda #%11100000    ; Set top three pins on VIA2 Port A to output
+      lda #(E | RW | RS)    ; Set top three pins on VIA2 Port A to output
       sta VIA2_DDRA
       lda #%11111111    ; Set all pins on VIA2 Port B to output
       sta VIA2_DDRB
@@ -111,7 +111,7 @@ init:
       lda #RS         ; Clear E bits
       sta VIA2_PORTA
 
-      lda #('w')
+      lda #('P')
       sta VIA2_PORTB
       lda #RS         ; Set RS; Clear RW/E bits
       sta VIA2_PORTA
@@ -120,7 +120,7 @@ init:
       lda #RS         ; Clear E bits
       sta VIA2_PORTA
 
-      lda #('o')
+      lda #('n')
       sta VIA2_PORTB
       lda #RS         ; Set RS; Clear RW/E bits
       sta VIA2_PORTA
@@ -129,25 +129,7 @@ init:
       lda #RS         ; Clear E bits
       sta VIA2_PORTA
 
-      lda #('r')
-      sta VIA2_PORTB
-      lda #RS         ; Set RS; Clear RW/E bits
-      sta VIA2_PORTA
-      lda #(RS | E)   ; Set E bit to send instruction
-      sta VIA2_PORTA
-      lda #RS         ; Clear E bits
-      sta VIA2_PORTA
-
-      lda #('l')
-      sta VIA2_PORTB
-      lda #RS         ; Set RS; Clear RW/E bits
-      sta VIA2_PORTA
-      lda #(RS | E)   ; Set E bit to send instruction
-      sta VIA2_PORTA
-      lda #RS         ; Clear E bits
-      sta VIA2_PORTA
-
-      lda #('d')
+      lda #('C')
       sta VIA2_PORTB
       lda #RS         ; Set RS; Clear RW/E bits
       sta VIA2_PORTA
